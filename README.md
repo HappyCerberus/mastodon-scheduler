@@ -1,4 +1,6 @@
-# Mastodon post scheduler (with image support)
+# Mastodon post scheduler
+
+![Embed preview image](https://socialify.git.ci/HappyCerberus/mastodon-scheduler/image?description=1&language=1&name=1&owner=1&theme=Light)
 
 Since the official post scheduler at https://www.scheduler.mastodon.tools/ doesn't support images, 
 I needed to make a simple post scheduler for my own purposes.
