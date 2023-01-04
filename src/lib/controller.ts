@@ -1,12 +1,39 @@
 import { login, mastodon } from 'masto';
 
+class LoginInfo {
+    constructor(instance: string, oauth: string) {
+      this.instance = instance;
+      this.oauth = oauth;
+    }
+    public instance: string;
+    public oauth: string;
+}
+
+export interface UserInfo {
+    instance: string;
+    user: string;
+}
+
 export class MastodonController {
-    public async login(url: string, token: string, remember: Boolean) : Promise<string | Error> {
+    public async memorized_login() : Promise<UserInfo | Error> {
+        const memorized = localStorage.getItem("mastodon-scheduler-auth");
+        if (memorized) {
+            const auth = JSON.parse(memorized) as LoginInfo;
+            return await this.login(auth.instance, auth.oauth, false);
+        }
+        return Error("no credentials stored");
+    }
+
+    public async login(url: string, token: string, remember: Boolean) : Promise<UserInfo | Error> {
         try {
             this.client = await login({url: url, accessToken: token});
             const acc = await this.client.v1.accounts.verifyCredentials();
             this.user = acc.displayName;
-            return this.user;
+            if (remember) {
+                const auth = new LoginInfo(url, token);
+                localStorage.setItem("mastodon-scheduler-auth", JSON.stringify(auth));
+            }
+            return {instance: url, user: this.user};
         } catch (e) {
             if (e instanceof Error) {
                 console.log(e.message);
@@ -21,6 +48,7 @@ export class MastodonController {
 
     public logout() {
         this.client = undefined;
+        localStorage.clear();
     }
 
     public async uploadImage(file: File) {
@@ -44,10 +72,6 @@ export class MastodonController {
             throw Error("Failed to schedule status.");
         return `Post ID: ${resp.id} Scheduled at: ${resp.scheduledAt}`;
     }
-
-    // TODO (use localStorage)
-    private remember(url: String, token: String) {}
-    private forget() { }
 
     private client?: mastodon.Client = undefined;
     private user?: string = undefined;

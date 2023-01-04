@@ -2,57 +2,65 @@
 import { defineComponent } from 'vue'
 import { MastodonController } from '../lib/controller'
 import { lifeCycle, LifeCycle } from '../lib/loginState'
+import LoginForm from './LoginForm.vue';
 
 export default defineComponent({
-  name: "Login",
-  data() {
-    return {
-        instance: 'https://hachyderm.io',
-        oauth: '',
-        user: '',
-        last_error: '',
-        authenticated: lifeCycle,
-    }
-  },
-  props: {
-    controller: MastodonController
-  },
-  methods : {
-    async login() {
+    name: "Login",
+    beforeMount() {
       if (this.controller === undefined)
-        throw new Error('Internal error, the login component requires controller access.');
-
-      const user = await this.controller.login(this.instance, this.oauth, false);
-      if (user instanceof Error) {
-        this.authenticated.state = LifeCycle.Failed;
-        this.last_error = user.message;
-        return;
-      }
-      this.user = user;
-      this.authenticated.state = LifeCycle.LoggedIn;
-      this.last_error = '';
+        throw new Error("Internal error, the login component requires controller access.");
+      this.controller.memorized_login().then((user) => {
+        if (user instanceof Error) {
+          this.authenticated.state = LifeCycle.LoggedOut;
+          return;
+        }
+        this.user = user.user;
+        this.instance = user.instance;
+        this.authenticated.state = LifeCycle.LoggedIn;
+        this.last_error = "";
+      });
     },
-    async logout() {
-      if (this.controller === undefined)
-        throw new Error('Internal error, the login component requires controller access.');
-
-      this.controller.logout();
-      this.authenticated.state = LifeCycle.LoggedOut;
-      this.user = '';
-    }
-  }
+    data() {
+        return {
+            instance: "",
+            user: "",
+            last_error: "",
+            authenticated: lifeCycle,
+        };
+    },
+    props: {
+        controller: MastodonController
+    },
+    methods: {
+        async login(instance: string, oauth: string, remember: Boolean) {
+            if (this.controller === undefined)
+                throw new Error("Internal error, the login component requires controller access.");
+            const user = await this.controller.login(instance, oauth, remember);
+            if (user instanceof Error) {
+                this.authenticated.state = LifeCycle.Failed;
+                this.last_error = user.message;
+                return;
+            }
+            this.user = user.user;
+            this.instance = instance;
+            this.authenticated.state = LifeCycle.LoggedIn;
+            this.last_error = "";
+        },
+        async logout() {
+            if (this.controller === undefined)
+                throw new Error("Internal error, the login component requires controller access.");
+            this.controller.logout();
+            this.authenticated.state = LifeCycle.LoggedOut;
+            this.user = "";
+        }
+    },
+    components: { LoginForm }
 });
 </script>
 
 <template>
     <div v-if="!authenticated.isLoggedIn()">
-        <form @submit.prevent="login">
-            <label for="instance">Instance:</label>
-            <input type="url" v-model="instance" id="instance" required>
-            <label for="oauth">Token:</label>
-            <input type="text" v-model="oauth" id="oauth" required>
-            <button type="submit">Log in</button>
-        </form>
+        <LoginForm @login="login"/>
         <div v-if="authenticated.isFailed()">
         Failed: {{ last_error }}.
         </div>
