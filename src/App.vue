@@ -6,9 +6,9 @@ import { lifeCycle } from './lib/loginState'
 </script>
 
 <template>
-  <Login :controller="mastodon_controller"/>
+  <Login :controller="mastodon_controller" />
   <div v-if="lifeCycle.isLoggedIn()">
-    <Editor :controller="mastodon_controller"/>
+    <Editor :controller="mastodon_controller" />
   </div>
   <div v-else>
     <p><b>Welcome to the simple Mastodon post scheduler!</b></p>
@@ -19,4 +19,5 @@ import { lifeCycle } from './lib/loginState'
 </template>
 
 <style scoped>
+
 </style>
