@@ -16,13 +16,15 @@ export interface UserInfo {
 
 export interface MediaInfo {
     id: string,
-    url: string,
+    url: string | undefined,
     preview_url: string
 }
 
 export interface ScheduledPostInfo {
     id: string,
     date: Date
+    text: string,
+    media_urls: string[]
 }
 
 export interface PostInfo {
@@ -80,11 +82,11 @@ export class MastodonController {
         localStorage.clear();
     }
 
-    public async uploadImage(file: File) {
+    public async uploadMedia(file: File) {
+        if (!this.client) return Error("Internal: client not initialized (please fill a bug-report).");
         try {
-            const resp = await this.client?.v2.mediaAttachments.create({ file: file });
-            if (!resp) throw Error("Failed to upload file.");
-            return resp.id;
+            const resp = await this.client.v2.mediaAttachments.create({ file: file });
+            return { id: resp.id, url: resp.url ?? undefined, preview_url: resp.previewUrl };
         } catch (e) {
             if (e instanceof Error) {
                 return e;
@@ -95,8 +97,9 @@ export class MastodonController {
     }
 
     public async makePost(text: string, image_ids: string[]) {
+        if (!this.client) return Error("Internal: client not initialized (please fill a bug-report).");
         try {
-            const resp = await this.client?.v1.statuses.create({
+            const resp = await this.client.v1.statuses.create({
                 mediaIds: image_ids,
                 status: text,
                 visibility: "public",
@@ -117,9 +120,10 @@ export class MastodonController {
         text: string,
         image_ids: string[]
     ) {
+        if (!this.client) return Error("Internal: client not initialized (please fill a bug-report).");
         const local = new Date(datetime);
         try {
-            const resp = await this.client?.v1.statuses.create({
+            const resp = await this.client.v1.statuses.create({
                 scheduledAt: local.toISOString(),
                 mediaIds: image_ids,
                 status: text,
@@ -134,6 +138,25 @@ export class MastodonController {
                 throw e;
             }
         }
+    }
+
+    async getScheduledPosts() {
+        if (!this.client) return Error("Internal: client not initialized (please fill a bug-report).");
+        let scheduled = new Array<ScheduledPostInfo>();
+        for await (const statuses of this.client.v1.scheduledStatuses.list()) {
+            for (const status of statuses) {
+                let urls = new Array<string>();
+                for (const attach of status.mediaAttachments) {
+                    urls.push(attach.remoteUrl ?? attach.previewUrl);
+                }
+                scheduled.push({id: status.id, date: new Date(status.scheduledAt), text: status.params.text, media_urls: urls});
+            }
+        }
+        return scheduled;
+    }
+    async deleteScheduledPost(id: string) {
+        if (!this.client) return Error("Internal: client not initialized (please fill a bug-report).");
+        await this.client.v1.scheduledStatuses.remove(id);
     }
 
     private client?: mastodon.Client = undefined;

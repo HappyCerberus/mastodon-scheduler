@@ -1,13 +1,13 @@
 <script lang="ts">
-import FileUpload from './FileUpload.vue';
+import AttachmentManager from './AttachmentManager.vue';
 import { defineComponent } from 'vue';
-import { MastodonController } from '../lib/controller';
+import { MastodonController, MediaInfo } from '../lib/controller';
 import { postingState, PostingState } from '../lib/postingState';
 
 export default defineComponent({
     name: "Editor",
-    components: { FileUpload },
-    props: { controller: MastodonController },
+    components: { AttachmentManager },
+    props: { controller: {type: MastodonController, required: true} },
     data() {
         return {
             form: {
@@ -18,7 +18,8 @@ export default defineComponent({
             },
             url: '',
             post: postingState,
-            statusInfo: ''
+            statusInfo: '',
+            attachments: new Array<MediaInfo>(),
         }
     },
     computed: {
@@ -27,25 +28,23 @@ export default defineComponent({
         }
     },
     methods: {
-        async onSubmit() {
-            if (!this.controller)
-                throw new Error('Internal error, the editor component requires controller access.');
-            
-            this.url = '';
-            const image : string[] = [];
-            if (this.form.image) {
-                postingState.state = PostingState.UploadingImages;
-                const image_id = await this.controller?.uploadImage(this.form.image);
-                if (image_id instanceof Error) {
-                    postingState.state = PostingState.PostingError;
-                    this.statusInfo = `Failed to upload image: ${image_id.cause} : ${image_id.message}`;
-                    return;
-                }
-                image.push(image_id);
+        // Convert Array of MediaInfo into a list of IDs
+        getAttachmentIDs() {
+            let attachments : string[] = [];
+            for (const a of this.attachments) {
+                attachments.push(a.id);
             }
+            return attachments;
+        },
+        async onSubmit() {
+            this.url = '';
+            // Fetch IDs from attachments
+            let attachments : string[] = this.getAttachmentIDs();
+            this.attachments = new Array<MediaInfo>();
+            
             postingState.state = PostingState.Posting;
             if (this.form.schedule) {
-                const info = await this.controller?.schedulePost(this.form.datetime, this.form.text, image);
+                const info = await this.controller?.schedulePost(this.form.datetime, this.form.text, attachments);
                 if (info instanceof Error) {
                     postingState.state = PostingState.PostingError;
                     this.statusInfo = `Failed to schedule post: ${info.message}`;
@@ -53,7 +52,7 @@ export default defineComponent({
                 }
                 this.url = info;
             } else {
-                const info = await this.controller?.makePost(this.form.text, image);
+                const info = await this.controller?.makePost(this.form.text, attachments);
                 if (info instanceof Error) {
                     postingState.state = PostingState.PostingError;
                     this.statusInfo = `Failed to post: ${info.message}`;
@@ -77,7 +76,7 @@ export default defineComponent({
         <form novalidate @submit.prevent="onSubmit" id="form">
             <textarea rows="20" cols="80" type="text" v-model="form.text" id="text" required />
             <div>Character count: {{ charcount }}</div>
-            <file-upload v-model="form.image"></file-upload>
+            <attachment-manager :controller="controller" :attachments="attachments"></attachment-manager>
             <span>
                 <label for="schedule">Schedule this post</label>
                 <input type="checkbox" v-model="form.schedule" id="schedule" />
@@ -97,9 +96,6 @@ export default defineComponent({
     </div>
     <div v-else-if="post.isSchedulingPost()">
         <div>Scheduling Post <div class="progress"></div></div>
-    </div>
-    <div v-else-if="post.isUploadingImages()">
-        <div>Uploading Images <div class="progress"></div></div>
     </div>
 </template>
 

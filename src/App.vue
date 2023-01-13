@@ -3,11 +3,13 @@ import Login from "./components/Login.vue"
 import Editor from "./components/Editor.vue";
 import mastodon_controller from "./lib/controller";
 import { lifeCycle } from './lib/loginState'
+import ScheduledPosts from "./components/ScheduledPosts.vue";
 </script>
 
 <template>
   <Login :controller="mastodon_controller" />
   <div v-if="lifeCycle.isLoggedIn()">
+    <ScheduledPosts :controller="mastodon_controller" />
     <Editor :controller="mastodon_controller" />
   </div>
   <div v-else>

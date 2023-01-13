@@ -109,3 +109,12 @@ sourced from: https://codepen.io/Golmote/pen/WNdXaP
 .progress:after {
   animation: progress-part2 3s ease infinite;
 }
+
+.btn {
+  background-color: lightgray;
+  border: none;
+  border-radius: 0.3em;
+  padding: 0.3em;
+  color: black;
+  cursor: pointer;
+}
